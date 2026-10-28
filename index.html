@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#fff8ec">
+<title>형님·동생 놀이 투표</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fff8ec;
+    --ink:#4a3a2a;
+    --card:#ffffff;
+    --line:#f3d9b1;
+    --drop:#fffdf7;
+    --accent:#ff8a5b;
+    --tray:#ffe7c2;
+  }
+  *{
+    box-sizing:border-box;margin:0;padding:0;
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;            /* 길게 누르면 뜨는 메뉴 막기 */
+    -webkit-tap-highlight-color:transparent;
+  }
+  html,body{
+    height:100%;overflow:hidden;
+    overscroll-behavior:none;              /* 당겨서 새로고침 막기 */
+    touch-action:none;                     /* 두 번 탭 확대·스크롤 막기 */
+  }
+  body{
+    font-family:'Jua','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+    background-image:radial-gradient(#ffe2b8 1.5px,transparent 1.5px);
+    background-size:22px 22px;
+    display:flex;flex-direction:column;
+    padding:1vh 1vw;gap:1vh;
+  }
+  img{-webkit-user-drag:none;user-drag:none;pointer-events:none}
+
+  /* ===== 제목 ===== */
+  header{display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 auto}
+  h1{
+    font-size:clamp(18px,3.6vh,42px);font-weight:400;
+    background:#fff;border:4px solid var(--accent);border-radius:999px;
+    padding:.6vh 2.4vw;box-shadow:0 5px 0 #f0b48f;white-space:nowrap;
+  }
+  h1 .big{color:var(--accent)}
+  .tools{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;gap:.5vw}
+  .tools.left{right:auto;left:0}
+  .btn{
+    font-family:inherit;font-size:clamp(12px,1.9vh,20px);
+    background:#fff;color:#9a7b5c;border:3px solid var(--line);border-radius:14px;
+    padding:.7vh 1vw;min-height:44px;cursor:pointer;
+  }
+  .btn:active{transform:scale(.94)}
+  .btn:disabled{opacity:.4}
+  #undoBtn:not(:disabled){color:var(--accent);border-color:var(--accent)}
+
+  /* ===== 14개 상자 (2줄 × 7칸) ===== */
+  .board{
+    flex:1 1 auto;min-height:0;
+    display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(2,1fr);
+    gap:1vh .8vw;
+  }
+  .card{
+    background:var(--card);border:4px solid var(--line);border-radius:18px;
+    display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;
+    box-shadow:0 4px 0 #f0d3a5;transition:border-color .15s, box-shadow .15s;
+  }
+  .card.hover{border-color:var(--accent);box-shadow:0 0 0 4px #ffd2bf, 0 4px 0 #f0d3a5}
+  .card .photo{flex:0 0 42%;min-height:0;background:#fdf1dd;position:relative}
+  .card .photo img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .photo .noimg{
+    position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+    color:#c9a77f;font-size:clamp(10px,1.5vh,16px);line-height:1.4;
+  }
+  .card .photo .noimg b{display:block;font-size:clamp(22px,4.5vh,48px)}
+  .card .label{
+    flex:0 0 auto;text-align:center;padding:.4vh .4vw;
+    font-size:clamp(11px,1.75vh,20px);line-height:1.25;
+    min-height:calc(2.5em + .8vh);display:grid;place-items:center;
+    background:#fff3df;border-bottom:3px dashed var(--line);
+    word-break:keep-all;
+  }
+  .card .drop{flex:1 1 auto;position:relative;background:var(--drop);min-height:0}
+  /* 스티커가 붙는 층 (상자 전체 - 사진 위에도 놓은 자리 그대로 붙어요) */
+  .card .layer{position:absolute;inset:0;z-index:2;pointer-events:none}
+  .card .layer .sticker{pointer-events:auto}
+  .card .count{
+    position:absolute;right:6px;top:6px;z-index:3;
+    background:#fff;border:3px solid var(--accent);color:var(--accent);
+    border-radius:999px;padding:0 .6em;font-size:clamp(12px,2vh,22px);
+    opacity:0;transform:scale(.5);transition:all .2s;
+  }
+  .card .count.show{opacity:1;transform:scale(1)}
+
+  /* ===== 스티커 판 (맨 아래 한 줄) ===== */
+  .tray{
+    flex:0 0 auto;
+    background:var(--tray);border:4px solid #f5c98a;border-radius:18px;
+    padding:.8vh .5vw;
+    display:grid;grid-template-columns:repeat(35,1fr);gap:.25vw;
+  }
+  .slot{aspect-ratio:1/1;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.5)}
+
+  .sticker{
+    position:relative;
+    background:center/contain no-repeat;
+    filter:drop-shadow(0 3px 2px rgba(0,0,0,.2));
+    touch-action:none;
+  }
+  /* 손가락이 잡기 쉽도록 실제 터치 영역은 스티커보다 조금 넓게 */
+  .sticker::after{content:"";position:absolute;inset:-6px;border-radius:50%}
+  .tray .slot .sticker{width:80%;height:80%}
+  .sticker.dragging{
+    position:fixed;z-index:9999;pointer-events:none;
+    transform:translate(-50%,-50%) scale(1.25) rotate(-8deg);
+    filter:drop-shadow(0 10px 8px rgba(0,0,0,.3));
+  }
+  .layer .sticker{position:absolute;transform:translate(-50%,-50%);animation:pop .3s ease-out}
+  @keyframes pop{0%{transform:translate(-50%,-50%) scale(.3)}70%{transform:translate(-50%,-50%) scale(1.25)}100%{transform:translate(-50%,-50%) scale(1)}}
+
+  .spark{position:fixed;pointer-events:none;z-index:9998;font-size:26px;animation:fly .7s ease-out forwards}
+  @keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.4);opacity:0}}
+
+  /* 세로 화면일 때 안내 (스탠바이미를 세로로 돌렸을 때) */
+  .rotate{
+    display:none;position:fixed;inset:0;z-index:10000;background:var(--bg);
+    place-items:center;text-align:center;font-size:5vw;color:var(--accent);line-height:1.5;
+  }
+  @media (orientation:portrait){ .rotate{display:grid} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tools left"><button class="btn" id="fullBtn">⛶ 전체화면</button></div>
+  <h1><span class="big">형님·동생</span>이 함께했던 <span class="big">제일 즐거웠던 놀이</span>를 골라주세요!</h1>
+  <div class="tools">
+    <button class="btn" id="undoBtn" disabled>↶ 되돌리기</button>
+    <button class="btn" id="resetBtn">↺ 처음부터</button>
+  </div>
+</header>
+
+<main class="board" id="board"></main>
+
+<footer class="tray" id="tray"></footer>
+
+<div class="rotate"><div>📺 화면을 <b>가로</b>로 돌려주세요!</div></div>
+
+<script>
+/* ================================================================
+   ✏️ 여기만 고치면 돼요!
+   ================================================================ */
+
+/* 1) 놀이 이름 / 사진 파일 (사진은 images 폴더에 넣어요) */
+const ITEMS = [
+  { title: "인사하며 상냥한 거리를 만들어요.",   photo: "images/1.jpg" },
+  { title: "칭찬 샤워를 해요.",                 photo: "images/2.jpg" },
+  { title: "괜찮아! 라고 이야기해요.",          photo: "images/3.jpg" },
+  { title: "다함께 힘을 합쳐 무지개를 그려요.", photo: "images/4.jpg" },
+  { title: "사랑을 담아 김치를 나누어요.",      photo: "images/5.jpg" },
+  { title: "시원한 수박화채를 만들어요.",       photo: "images/6.jpg" },
+  { title: "아나바다 딸기마켓이 열렸어요.",     photo: "images/7.jpg" },
+  { title: "스마트폰 없이 재미있게 놀아요.",    photo: "images/8.jpg" },
+  { title: "토끼의 생일파티 준비해요.",         photo: "images/9.jpg" },
+  { title: "세계의 악기로 연주해요.",           photo: "images/10.jpg" },
+  { title: "함께 놀이할 과자 식탁을 만들어요.", photo: "images/11.jpg" },
+  { title: "사랑을 나누어요.",                  photo: "images/12.jpg" },
+  { title: "QR코드 분리수거를 해요.",           photo: "images/13.jpg" },
+  { title: "모두를 위한 유치원을 만들어요.",    photo: "images/14.jpg" },
+];
+
+/* 2) 스티커 그림 (35개 모두 이 그림 하나로 나와요) */
+const STICKER_IMAGE = "images/heart.svg";
+
+/* 3) 스티커 개수 */
+const STICKER_COUNT = 35;
+/* ================================================================ */
+
+const board = document.getElementById('board');
+const tray  = document.getElementById('tray');
+const SAVE_KEY = 'hyung-dongsaeng-vote-v5';
+
+/* --- 상자 14개 --- */
+ITEMS.forEach((it, i) => {
+  const card = document.createElement('section');
+  card.className = 'card';
+  card.dataset.idx = i;
+  card.innerHTML = `
+    <div class="photo">
+      ${it.photo ? `<img src="${it.photo}" alt="">` : ''}
+      <div class="noimg" ${it.photo ? 'style="display:none"' : ''}><div><b>📷</b>사진 자리</div></div>
+    </div>
+    <div class="label">${it.title}</div>
+    <div class="drop"></div>
+    <div class="layer"></div>
+    <div class="count"></div>`;
+  const img = card.querySelector('img');
+  if (img) img.onerror = () => { img.remove(); card.querySelector('.noimg').style.display = ''; };
+  board.appendChild(card);
+});
+
+/* --- 스티커 35개 (모두 같은 그림) --- */
+tray.style.gridTemplateColumns = `repeat(${STICKER_COUNT},1fr)`;
+for (let i = 0; i < STICKER_COUNT; i++) {
+  const slot = document.createElement('div');
+  slot.className = 'slot';
+  slot.dataset.id = i;
+  const s = document.createElement('div');
+  s.className = 'sticker';
+  s.dataset.id = i;
+  s.style.backgroundImage = `url("${STICKER_IMAGE}")`;
+  slot.appendChild(s);
+  tray.appendChild(slot);
+  s.addEventListener('pointerdown', startDrag);
+}
+
+/* 터치 스크린에서 길게 누를 때 메뉴가 뜨지 않게 */
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* --- 상자 안 스티커 크기 (화면에 맞춤) --- */
+function stickerSize() {
+  const d = document.querySelector('.drop');
+  return Math.max(26, Math.min(d.clientWidth / 4.2, d.clientHeight / 3.1, 56));
+}
+function sizeEl(el, size) {
+  el.style.width = el.style.height = size + 'px';
+}
+
+/* --- 드래그 & 드롭 (여러 아이가 동시에 터치해도 각각 움직여요) --- */
+const drags = new Map();   // 손가락(pointerId) → 잡고 있는 스티커
+
+function startDrag(e) {
+  e.preventDefault();
+  const el = e.currentTarget;
+  if ([...drags.values()].includes(el)) return;
+  // 원래 있던 자리 기억 (칸 밖에 놓으면 여기로 돌아가요)
+  const fromCard = el.closest('.card');
+  el._from = fromCard
+    ? { card: fromCard.dataset.idx, x: parseFloat(el.style.left), y: parseFloat(el.style.top) }
+    : null;
+  drags.set(e.pointerId, el);
+  el.classList.add('dragging');
+  sizeEl(el, stickerSize());
+  document.body.appendChild(el);
+  moveTo(el, e.clientX, e.clientY);
+  beep(520);
+}
+function moveTo(el, x, y) {
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el._x = x; el._y = y;            // 마지막으로 보인 위치
+  el._card = cardAt(x, y);
+  refreshHover();
+}
+function refreshHover() {
+  const on = new Set([...drags.values()].map(el => el._card).filter(Boolean));
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('hover', on.has(c)));
+}
+function cardAt(x, y) {
+  const t = document.elementFromPoint(x, y);
+  return t ? t.closest('.card') : null;
+}
+window.addEventListener('pointermove', e => {
+  const el = drags.get(e.pointerId);
+  if (el) { e.preventDefault(); moveTo(el, e.clientX, e.clientY); }
+}, { passive: false });
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+
+function endDrag(e) {
+  const el = drags.get(e.pointerId);
+  if (!el) return;
+  drags.delete(e.pointerId);
+  // 화면에 마지막으로 보였던 바로 그 위치를 사용해요
+  const px = el._x, py = el._y;
+  const card = (e.type === 'pointercancel') ? null : cardAt(px, py);
+  const r = card ? card.getBoundingClientRect() : null;   // 상자 위치를 먼저 재요
+  el.classList.remove('dragging');
+  el.style.left = el.style.top = '';
+  el._card = null;
+  refreshHover();
+
+  if (card) {
+    // 되돌리기용: 바뀌기 전 상태 저장
+    const before = getState();
+    if (el._from) before.push({ id: el.dataset.id, ...el._from });
+    pushHistory(before);
+
+    // 손가락을 뗀 바로 그 자리에 붙여요 (상자 밖으로 삐져나가지 않게만 맞춤)
+    const half = stickerSize() / 2;
+    const x = Math.min(Math.max(px - r.left, half), r.width - half);
+    const y = Math.min(Math.max(py - r.top, half), r.height - half);
+    placeIn(el, card, x / r.width * 100, y / r.height * 100);
+    sparkle(px, py);
+    beep(880); setTimeout(() => beep(1175), 90);
+  } else {
+    // 칸 밖에 놓으면 원래 자리로 돌아가요
+    returnHome(el);
+    beep(330);
+  }
+  el._from = null;
+  updateCounts();
+  save();
+}
+function placeIn(el, card, px, py) {
+  sizeEl(el, stickerSize());
+  el.style.left = px + '%';
+  el.style.top = py + '%';
+  card.querySelector('.layer').appendChild(el);
+}
+function returnHome(el) {
+  const f = el._from;
+  const card = f && board.querySelector(`.card[data-idx="${f.card}"]`);
+  if (card) placeIn(el, card, f.x, f.y);
+  else backToTray(el);
+}
+function backToTray(el) {
+  el.style.width = el.style.height = el.style.left = el.style.top = '';
+  tray.querySelector(`.slot[data-id="${el.dataset.id}"]`).appendChild(el);
+}
+
+/* --- 상자마다 스티커 개수 --- */
+function updateCounts() {
+  document.querySelectorAll('.card').forEach(c => {
+    const n = c.querySelectorAll('.layer .sticker').length;
+    const b = c.querySelector('.count');
+    b.textContent = n + '개';
+    b.classList.toggle('show', n > 0);
+  });
+}
+
+/* --- 현재 상태 읽기 / 적용하기 --- */
+function getState() {
+  return [...document.querySelectorAll('.layer .sticker')].map(s => ({
+    id: s.dataset.id, card: s.closest('.card').dataset.idx,
+    x: parseFloat(s.style.left), y: parseFloat(s.style.top) }));
+}
+function applyState(data) {
+  document.querySelectorAll('.layer .sticker').forEach(backToTray);
+  data.forEach(d => {
+    const s = tray.querySelector(`.sticker[data-id="${d.id}"]`);
+    const card = board.querySelector(`.card[data-idx="${d.card}"]`);
+    if (s && card) placeIn(s, card, d.x, d.y);
+  });
+  updateCounts();
+}
+
+/* --- 되돌리기 (한 번 누를 때마다 한 동작씩 뒤로) --- */
+const history = [];
+const undoBtn = document.getElementById('undoBtn');
+function pushHistory(state) {
+  history.push(state);
+  if (history.length > 100) history.shift();
+  undoBtn.disabled = false;
+}
+undoBtn.addEventListener('click', () => {
+  if (!history.length || drags.size) return;
+  applyState(history.pop());
+  undoBtn.disabled = history.length === 0;
+  save();
+  beep(440);
+});
+
+/* --- 반짝이 & 소리 --- */
+function sparkle(x, y) {
+  ['💖','✨','❤️','✨','💕'].forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'spark'; d.textContent = s;
+    d.style.left = x + 'px'; d.style.top = y + 'px';
+    const a = i / 5 * Math.PI * 2;
+    d.style.setProperty('--dx', Math.cos(a) * 70 + 'px');
+    d.style.setProperty('--dy', Math.sin(a) * 70 + 'px');
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 700);
+  });
+}
+let ac = null;
+function beep(freq) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(.18, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .15);
+    o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + .16);
+  } catch (_) {}
+}
+
+/* --- 새로고침해도 붙인 스티커 유지 --- */
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(getState())); } catch (_) {}
+}
+function load() {
+  let data = [];
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch (_) {}
+  applyState(data);
+}
+window.addEventListener('resize', () => {
+  const size = stickerSize();
+  document.querySelectorAll('.layer .sticker').forEach(s => sizeEl(s, size));
+});
+
+/* --- 처음부터 (되돌리기로 다시 살릴 수 있어요) --- */
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('붙인 스티커를 모두 떼고 처음부터 할까요?')) return;
+  const before = getState();
+  if (before.length) pushHistory(before);
+  applyState([]);
+  save();
+});
+
+/* --- 전체화면 (주소창 숨기기) + 화면 꺼짐 방지 --- */
+const fullBtn = document.getElementById('fullBtn');
+fullBtn.addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    else await document.exitFullscreen();
+  } catch (_) {}
+});
+document.addEventListener('fullscreenchange', () => {
+  fullBtn.textContent = document.fullscreenElement ? '⛶ 전체화면 끄기' : '⛶ 전체화면';
+});
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+keepAwake();
+
+load();
+</script>
+</body>
+</html>
